@@ -1,4 +1,4 @@
 window.BREAKLINE_CONFIG = {
-  supabaseUrl: 'https://cxfivucsqpiizrjurcmz.supabase.co',
-  supabaseAnonKey: 'sb_publishable_Qbnw1SfcFXEhrrCH-t3a_w_Zm6cQneW'
+  supabaseUrl: 'https://tdqhwuwcemwefdwqphmy.supabase.co',
+  supabaseAnonKey: 'sb_publishable_ukS2JGRk77fmHncaSYufgg_y4LMcX4G'
 };
