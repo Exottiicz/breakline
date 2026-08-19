@@ -1,100 +1,334 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>abiBUILDS — Arena Breakout: Infinite Builds</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="community.css" />
-  </head>
-  <body>
-    <div class="noise"></div>
-    <header class="topbar">
-      <a href="#" class="brand"><span class="brand-mark">a</span><span>abi<span class="brand-accent">BUILDS</span></span></a>
-      <nav>
-        <a class="active" href="#builds">BUILDS</a>
-        <a href="#workbench">WORKBENCH</a>
-        <a href="#squads">SQUADS</a>
-        <a href="#market">MARKET</a>
-      </nav>
-      <div class="top-actions">
-        <button class="icon-btn" aria-label="Search">⌕</button>
-        <button class="login" data-open-auth>LOG IN</button>
-        <button class="join" data-open-submit>JOIN THE LINE <span>→</span></button>
-      </div>
-    </header>
+(() => {
+  'use strict';
 
-    <main>
-      <section class="hero">
-        <div class="hero-grid"></div>
-        <div class="hero-copy">
-          <p class="eyebrow"><span></span> THE ABI LOADOUT COMMUNITY</p>
-          <h1>BUILD SMART.<br /><em>SURVIVE LONGER.</em></h1>
-          <p class="intro">The definitive community hub for Arena Breakout: Infinite loadouts. Share battle-tested builds, tune every attachment, and find your edge before deployment.</p>
-          <div class="hero-actions">
-            <a href="#builds" class="primary-btn">EXPLORE BUILDS <b>→</b></a>
-            <a href="#workbench" class="text-btn">OPEN WORKBENCH <b>↗</b></a>
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const config = window.BREAKLINE_CONFIG || {};
+  const hasSupabase = Boolean(window.supabase && config.supabaseUrl && config.supabaseAnonKey);
+  const db = hasSupabase ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
+
+  const state = {
+    user: null,
+    profileName: '',
+    builds: [],
+    filter: 'ALL',
+    search: '',
+    sort: 'trending',
+    saved: new Set(JSON.parse(localStorage.getItem('breakline_saved') || '[]'))
+  };
+
+  const toast = (message, type = 'info') => {
+    const el = $('#toast');
+    if (!el) return;
+    el.textContent = message;
+    el.dataset.type = type;
+    el.classList.add('show');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => el.classList.remove('show'), 3200);
+  };
+
+  const openModal = (modal) => {
+    if (!modal) return;
+    if (typeof modal.showModal === 'function') modal.showModal();
+    else modal.setAttribute('open', '');
+  };
+
+  const closeModal = (modal) => {
+    if (!modal) return;
+    if (typeof modal.close === 'function') modal.close();
+    else modal.removeAttribute('open');
+  };
+
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>\"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#039;' }[ch]));
+
+  const formatKoen = (value) => `₭ ${Number(value || 0).toLocaleString('en-US')}`;
+
+  function setAuthUi() {
+    const login = $('[data-open-auth]');
+    const submitNote = $('#submit-note');
+    const authNote = $('#auth-note');
+    if (login) login.textContent = state.user ? `LOG OUT (${state.profileName || 'OPERATOR'})` : 'LOG IN';
+    if (submitNote) submitNote.textContent = state.user
+      ? `Signed in as ${state.profileName || state.user.email}. Your build will publish to the community.`
+      : 'Sign in first to publish to the community.';
+    if (authNote) authNote.textContent = state.user
+      ? `Signed in as ${state.profileName || state.user.email}.`
+      : 'Your profile is stored securely when Supabase is connected.';
+  }
+
+  async function refreshSession() {
+    if (!db) return setAuthUi();
+    const { data, error } = await db.auth.getSession();
+    if (error) console.warn('Supabase session error:', error.message);
+    state.user = data?.session?.user || null;
+    state.profileName = state.user?.user_metadata?.operator_name || state.user?.user_metadata?.name || '';
+    setAuthUi();
+  }
+
+  function buildMatches(build) {
+    const type = String(build.type || '').toUpperCase();
+    const haystack = [build.title, build.type, build.weapon, build.notes, build.author].join(' ').toLowerCase();
+    const matchesFilter = state.filter === 'ALL' || type === state.filter || (state.filter === 'BUDGET' && type === 'BUDGET');
+    const matchesSearch = !state.search || haystack.includes(state.search.toLowerCase());
+    return matchesFilter && matchesSearch;
+  }
+
+  function sortBuilds(builds) {
+    return [...builds].sort((a, b) => {
+      if (state.sort === 'newest') return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      if (state.sort === 'price-low') return Number(a.price || 0) - Number(b.price || 0);
+      if (state.sort === 'price-high') return Number(b.price || 0) - Number(a.price || 0);
+      return (Number(b.likes || 0) - Number(a.likes || 0)) || (new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    });
+  }
+
+  function renderBuilds() {
+    const grid = $('#build-grid');
+    const count = $('#build-count');
+    if (!grid) return;
+
+    const visible = sortBuilds(state.builds).filter(buildMatches);
+    if (count) count.textContent = visible.length;
+
+    if (!visible.length) {
+      grid.innerHTML = '<div class="empty-state">NO BUILDS MATCH YOUR SEARCH.</div>';
+      return;
+    }
+
+    grid.innerHTML = visible.map((build, index) => {
+      const id = escapeHtml(build.id);
+      const type = escapeHtml(build.type || 'BUILD');
+      const tag = type === 'BUDGET' ? 'BUDGET KING' : index === 0 ? 'TOP PICK' : 'COMMUNITY';
+      const saved = state.saved.has(String(build.id));
+      return `
+        <article class="build-card ${index === 0 ? 'featured' : ''}" data-build-id="${id}">
+          <div class="card-visual weapon-${(index % 3) + 1}">
+            <span class="tier">COMMUNITY</span>
+            <button class="save ${saved ? 'saved' : ''}" data-save-build="${id}" aria-label="Save build">${saved ? '♥' : '♡'}</button>
+            <div class="weapon-silhouette ${type.toLowerCase().includes('smg') ? 'smg' : type.toLowerCase().includes('dmr') ? 'dmr' : 'ar'}"></div>
+            <span class="tag ${tag === 'BUDGET KING' ? 'budget' : 'top'}">${tag}</span>
           </div>
-          <div class="hero-stats">
-            <div><strong>12.4K</strong><span>ACTIVE OPERATORS</span></div>
-            <div><strong>3,842</strong><span>COMMUNITY BUILDS</span></div>
-            <div><strong>98.6%</strong><span>EXTRACTION RATE*</span></div>
+          <div class="card-body">
+            <div class="card-meta"><span>${type}</span><span class="up">▲ ${Number(build.likes || 0)} likes</span></div>
+            <h3>${escapeHtml(build.title)}</h3>
+            <p>${escapeHtml(build.weapon)}</p>
+            <div class="card-foot"><span class="price">${formatKoen(build.price)}</span><span class="author">BY <b>${escapeHtml(build.author || 'OPERATOR')}</b></span></div>
           </div>
-        </div>
-        <div class="hero-art" aria-label="Stylized assault rifle blueprint">
-          <div class="target-ring r1"></div><div class="target-ring r2"></div><div class="target-ring r3"></div>
-          <div class="rifle">
-            <div class="barrel"></div><div class="rail"></div><div class="receiver"></div><div class="stock"></div><div class="grip"></div><div class="mag"></div><div class="scope"></div><div class="muzzle"></div>
-          </div>
-          <div class="callout scope-label"><i></i>1X/4X VARIABLE OPTIC</div>
-          <div class="callout grip-label"><i></i>ANGLED FOREGRIP</div>
-          <div class="callout mag-label"><i></i>60-ROUND MAG</div>
-          <p class="build-id">BUILD // 00481<br /><b>MK14 · DMR CONFIG</b></p>
-        </div>
-      </section>
+        </article>`;
+    }).join('');
+  }
 
-      <section class="ticker"><div><span>◈</span> COMMUNITY INTEL <b>•</b> NEW BUILDS DROPPED DAILY <b>•</b> SQUAD UP. BUILD UP. <b>•</b> COMMUNITY INTEL <b>•</b> NEW BUILDS DROPPED DAILY <b>•</b> SQUAD UP. BUILD UP. <b>•</b></div></section>
+  async function loadBuilds() {
+    if (!db) {
+      state.builds = [];
+      renderBuilds();
+      return;
+    }
+    const { data, error } = await db.from('builds').select('*').order('likes', { ascending: false }).order('created_at', { ascending: false }).limit(100);
+    if (error) {
+      console.warn('Could not load builds:', error.message);
+      toast('Community builds could not be loaded. Check the Supabase table/policies.', 'error');
+      state.builds = [];
+    } else {
+      state.builds = data || [];
+    }
+    renderBuilds();
+  }
 
-      <section class="content" id="builds">
-        <div class="section-head">
-          <div><p class="eyebrow"><span></span> FIELD-PROVEN CONFIGS</p><h2>Trending <em>this week</em></h2></div>
-          <a href="#" class="view-all">VIEW ALL BUILDS <b>→</b></a>
-        </div>
-        <div class="filter-row">
-          <button class="filter selected" data-filter="ALL">ALL BUILDS <small id="build-count">3</small></button><button class="filter" data-filter="ASSAULT RIFLES">ASSAULT RIFLES</button><button class="filter" data-filter="SMGS">SMGS</button><button class="filter" data-filter="DMRS">DMRS</button><button class="filter" data-filter="BUDGET">BUDGET</button>
-          <input id="build-search" placeholder="SEARCH BUILDS" aria-label="Search builds" />
-          <button class="sort">SORT: TRENDING <b>⌄</b></button>
-        </div>
-        <div class="build-grid" id="build-grid">
-          <article class="build-card featured">
-            <div class="card-visual weapon-one"><span class="tier">TIER 5</span><button class="save">♡</button><div class="weapon-silhouette ar"></div><span class="tag top">TOP PICK</span></div>
-            <div class="card-body"><div class="card-meta"><span>ASSAULT RIFLE</span><span class="up">▲ 24%</span></div><h3>The Quiet Operator</h3><p>M4A1 · Full stealth / mid-range</p><div class="card-foot"><span class="price">₭ 184,500</span><span class="author">BY <b>GHOSTRIDER</b></span></div></div>
-          </article>
-          <article class="build-card">
-            <div class="card-visual weapon-two"><span class="tier">TIER 4</span><button class="save">♡</button><div class="weapon-silhouette smg"></div><span class="tag budget">BUDGET KING</span></div>
-            <div class="card-body"><div class="card-meta"><span>SMG</span><span class="up">▲ 18%</span></div><h3>Zero to Hero</h3><p>MP5 · Close quarters / cheap</p><div class="card-foot"><span class="price">₭ 42,300</span><span class="author">BY <b>RAZE</b></span></div></div>
-          </article>
-          <article class="build-card">
-            <div class="card-visual weapon-three"><span class="tier">TIER 6</span><button class="save">♡</button><div class="weapon-silhouette dmr"></div><span class="tag meta">META</span></div>
-            <div class="card-body"><div class="card-meta"><span>DMR</span><span class="up">▲ 11%</span></div><h3>Valley Watcher</h3><p>M110 · Long range / precision</p><div class="card-foot"><span class="price">₭ 216,750</span><span class="author">BY <b>SUNDOWN</b></span></div></div>
-          </article>
-        </div>
-      </section>
+  async function signUp(event) {
+    event.preventDefault();
+    if (!db) return toast('Supabase is not configured.', 'error');
+    const name = $('#auth-name')?.value.trim();
+    const email = $('#auth-email')?.value.trim();
+    const password = $('#auth-password')?.value;
+    if (!name || !email || !password) return;
 
-      <section class="workbench" id="workbench">
-        <div class="bench-copy"><p class="eyebrow"><span></span> COMMUNITY TOOLKIT</p><h2>FROM IDEA<br />TO <em>EXTRACTION.</em></h2><p>Stop guessing what works. Assemble a loadout, compare the real numbers, and share it with operators who know the map.</p><a class="primary-btn" href="#">START A BUILD <b>→</b></a></div>
-        <div class="bench-panel"><div class="panel-head"><span>LOADOUT WORKBENCH</span><span class="live-dot">● LIVE STATS</span></div><div class="loadout-row"><div class="slot gun-slot"><span>PRIMARY</span><b>AK-74N</b><i>▰</i></div><div class="slot"><span>HELMET</span><b>IND200</b><i>◒</i></div><div class="slot"><span>ARMOR</span><b>6B23</b><i>▣</i></div></div><div class="stat-bars"><div><label>ERGONOMICS <b>72</b></label><i><em style="width:72%"></em></i></div><div><label>VERTICAL RECOIL <b>41</b></label><i><em style="width:41%"></em></i></div><div><label>HORIZONTAL RECOIL <b>47</b></label><i><em style="width:47%"></em></i></div></div><div class="panel-total"><span>EST. LOADOUT COST</span><b>₭ 142,800</b><button>SHARE BUILD →</button></div></div>
-      </section>
-    </main>
-    <footer><span>abiBUILDS <i>///</i> COMMUNITY BUILD DATABASE</span><span>FAN-MADE. NOT AFFILIATED WITH MORE FUN STUDIOS.</span><span>© 2026</span></footer>
-    <dialog id="auth-modal" class="modal"><button class="modal-close" data-close>×</button><div class="modal-inner"><p class="eyebrow"><span></span> OPERATOR ACCESS</p><h2>Join the <em>line.</em></h2><p>Create a profile to publish builds, save favorites, and earn reputation.</p><form id="auth-form"><input id="auth-name" required minlength="3" placeholder="OPERATOR NAME" /><input id="auth-email" required type="email" placeholder="EMAIL ADDRESS" /><input id="auth-password" required minlength="8" type="password" placeholder="PASSWORD (8+ CHARACTERS)" /><button class="primary-btn">CREATE PROFILE <b>→</b></button></form><small id="auth-note">Your profile is stored securely when Supabase is connected.</small></div></dialog>
-    <dialog id="submit-modal" class="modal"><button class="modal-close" data-close>×</button><div class="modal-inner"><p class="eyebrow"><span></span> SHARE YOUR CONFIG</p><h2>Post a <em>build.</em></h2><form id="build-form"><input id="build-title" required maxlength="48" placeholder="BUILD NAME" /><div class="form-pair"><select id="build-type"><option>ASSAULT RIFLE</option><option>SMG</option><option>DMR</option><option>SHOTGUN</option><option>PISTOL</option><option>BUDGET</option></select><input id="build-price" required type="number" min="0" placeholder="COST (KOEN)" /></div><input id="build-weapon" required maxlength="40" placeholder="WEAPON + ROLE (e.g. M4A1 · STEALTH)" /><input id="gunsmith-code" maxlength="120" placeholder="GUNSMITH CODE (OPTIONAL)" /><input id="loadout-code" maxlength="120" placeholder="FULL LOADOUT CODE (OPTIONAL)" /><textarea id="build-notes" maxlength="180" placeholder="WHY DOES THIS BUILD WORK?"></textarea><button class="primary-btn">PUBLISH BUILD <b>→</b></button></form><small id="submit-note">Sign in first to publish to the community.</small></div></dialog>
-    <div id="toast" role="status"></div>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script src="config.js"></script>
-    <script src="script.js"></script>
-  </body>
-</html>
+    const button = $('#auth-form button[type="submit"]') || $('#auth-form .primary-btn');
+    if (button) button.disabled = true;
+    try {
+      const { data, error } = await db.auth.signUp({
+        email,
+        password,
+        options: { data: { operator_name: name } }
+      });
+      if (error) throw error;
+      state.user = data.user || null;
+      state.profileName = name;
+      setAuthUi();
+      if (data.session) {
+        closeModal($('#auth-modal'));
+        toast('Profile created. You are signed in.', 'success');
+      } else {
+        toast('Account created. Check your email to confirm it, then log in.', 'success');
+      }
+      $('#auth-form')?.reset();
+    } catch (error) {
+      toast(error.message || 'Could not create the account.', 'error');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function logOut() {
+    if (!db || !state.user) return;
+    const { error } = await db.auth.signOut();
+    if (error) return toast(error.message, 'error');
+    state.user = null;
+    state.profileName = '';
+    setAuthUi();
+    toast('Logged out.', 'success');
+  }
+
+  async function submitBuild(event) {
+    event.preventDefault();
+    if (!db) return toast('Supabase is not configured.', 'error');
+    if (!state.user) {
+      closeModal($('#submit-modal'));
+      openModal($('#auth-modal'));
+      return toast('Log in first to publish a build.', 'error');
+    }
+
+    const payload = {
+      title: $('#build-title')?.value.trim(),
+      type: $('#build-type')?.value,
+      weapon: $('#build-weapon')?.value.trim(),
+      price: Number($('#build-price')?.value || 0),
+      notes: [$('#build-notes')?.value.trim(), $('#gunsmith-code')?.value.trim() ? `Gunsmith: ${$('#gunsmith-code').value.trim()}` : '', $('#loadout-code')?.value.trim() ? `Loadout: ${$('#loadout-code').value.trim()}` : ''].filter(Boolean).join(' | '),
+      author: state.profileName || state.user.user_metadata?.operator_name || state.user.email?.split('@')[0] || 'OPERATOR',
+      user_id: state.user.id
+    };
+
+    if (!payload.title || !payload.weapon || payload.price < 0) return toast('Please complete the required build fields.', 'error');
+    const button = $('#build-form .primary-btn');
+    if (button) button.disabled = true;
+    try {
+      const { error } = await db.from('builds').insert(payload);
+      if (error) throw error;
+      $('#build-form')?.reset();
+      closeModal($('#submit-modal'));
+      await loadBuilds();
+      location.hash = 'builds';
+      toast('Build published successfully.', 'success');
+    } catch (error) {
+      toast(error.message || 'Could not publish the build. Check your Supabase policies.', 'error');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function toggleSave(id) {
+    const key = String(id);
+    if (state.saved.has(key)) state.saved.delete(key);
+    else state.saved.add(key);
+    localStorage.setItem('breakline_saved', JSON.stringify([...state.saved]));
+    renderBuilds();
+    toast(state.saved.has(key) ? 'Build saved.' : 'Build removed from saved builds.', 'success');
+
+    if (db && state.saved.has(key) && state.user) {
+      const build = state.builds.find(item => String(item.id) === key);
+      if (build) {
+        const { error } = await db.from('builds').update({ likes: Number(build.likes || 0) + 1 }).eq('id', build.id);
+        if (!error) {
+          build.likes = Number(build.likes || 0) + 1;
+          renderBuilds();
+        }
+      }
+    }
+  }
+
+  function scrollToHash(hash) {
+    const id = hash.replace('#', '');
+    if (!id) return window.scrollTo({ top: 0, behavior: 'smooth' });
+    const target = document.getElementById(id);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else if (id === 'squads' || id === 'market') toast(`${id.toUpperCase()} is coming soon.`, 'info');
+  }
+
+  function setup() {
+    document.addEventListener('click', async (event) => {
+      const openAuth = event.target.closest('[data-open-auth]');
+      const openSubmit = event.target.closest('[data-open-submit]');
+      const close = event.target.closest('[data-close]');
+      const save = event.target.closest('[data-save-build]');
+      const navLink = event.target.closest('a[href^="#"]');
+
+      if (openAuth) {
+        event.preventDefault();
+        if (state.user) return logOut();
+        openModal($('#auth-modal'));
+      }
+      if (openSubmit) {
+        event.preventDefault();
+        openModal($('#submit-modal'));
+      }
+      if (close) closeModal(close.closest('dialog'));
+      if (save) {
+        event.preventDefault();
+        await toggleSave(save.dataset.saveBuild);
+      }
+      if (navLink) {
+        const href = navLink.getAttribute('href');
+        if (href === '#') {
+          event.preventDefault();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          event.preventDefault();
+          scrollToHash(href);
+        }
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      const filter = event.target.closest('[data-filter]');
+      if (!filter) return;
+      $$('.filter[data-filter]').forEach(btn => btn.classList.toggle('selected', btn === filter));
+      state.filter = filter.dataset.filter;
+      renderBuilds();
+    });
+
+    $('#build-search')?.addEventListener('input', (event) => {
+      state.search = event.target.value.trim();
+      renderBuilds();
+    });
+
+    $('.sort')?.addEventListener('click', () => {
+      const options = ['trending', 'newest', 'price-low', 'price-high'];
+      const labels = ['TRENDING', 'NEWEST', 'PRICE LOW', 'PRICE HIGH'];
+      const next = (options.indexOf(state.sort) + 1) % options.length;
+      state.sort = options[next];
+      $('.sort').innerHTML = `SORT: ${labels[next]} <b>⌄</b>`;
+      renderBuilds();
+    });
+
+    $('#auth-form')?.addEventListener('submit', signUp);
+    $('#build-form')?.addEventListener('submit', submitBuild);
+
+    ['#auth-modal', '#submit-modal'].forEach(selector => {
+      const modal = $(selector);
+      modal?.addEventListener('click', event => {
+        if (event.target === modal) closeModal(modal);
+      });
+    });
+
+    $('.icon-btn')?.addEventListener('click', () => {
+      $('#build-search')?.focus();
+      scrollToHash('#builds');
+    });
+
+    $$('.primary-btn').forEach(button => {
+      const text = button.textContent.toUpperCase();
+      if (text.includes('START A BUILD')) button.addEventListener('click', event => { event.preventDefault(); openModal($('#submit-modal')); });
+      if (text.includes('SHARE BUILD')) button.addEventListener('click', event => { event.preventDefault(); openModal($('#submit-modal')); });
+    });
+
+    refreshSession().then(loadBuilds);
+    if (db) db.auth.onAuthStateChange((_event, session) => {
+      state.user = session?.user || null;
+      state.profileName = state.user?.user_metadata?.operator_name || state.user?.user_metadata?.name || '';
+      setAuthUi();
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup, { once: true });
+  else setup();
+})();
