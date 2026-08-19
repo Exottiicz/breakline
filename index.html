@@ -9,6 +9,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="community.css" />
+    <style>
+      .topbar,.top-actions,.top-actions button{pointer-events:auto!important}
+      .topbar{z-index:10000!important}
+      .top-actions button{position:relative;z-index:10001!important}
+      .modal{z-index:20000}
+    </style>
   </head>
   <body>
     <div class="noise"></div>
@@ -22,8 +28,8 @@
       </nav>
       <div class="top-actions">
         <button type="button" class="icon-btn" aria-label="Search">⌕</button>
-        <button type="button" class="login" data-open-auth>LOG IN</button>
-        <button type="button" class="join" data-open-submit>JOIN THE LINE <span>→</span></button>
+        <button type="button" class="login" data-open-auth onclick="document.getElementById('auth-modal').showModal()">LOG IN</button>
+        <button type="button" class="join" data-open-submit onclick="document.getElementById('submit-modal').showModal()">JOIN THE LINE <span>→</span></button>
       </div>
     </header>
 
@@ -46,62 +52,26 @@
         </div>
         <div class="hero-art" aria-label="Stylized assault rifle blueprint">
           <div class="target-ring r1"></div><div class="target-ring r2"></div><div class="target-ring r3"></div>
-          <div class="rifle">
-            <div class="barrel"></div><div class="rail"></div><div class="receiver"></div><div class="stock"></div><div class="grip"></div><div class="mag"></div><div class="scope"></div><div class="muzzle"></div>
-          </div>
-          <div class="callout scope-label"><i></i>1X/4X VARIABLE OPTIC</div>
-          <div class="callout grip-label"><i></i>ANGLED FOREGRIP</div>
-          <div class="callout mag-label"><i></i>60-ROUND MAG</div>
+          <div class="rifle"><div class="barrel"></div><div class="rail"></div><div class="receiver"></div><div class="stock"></div><div class="grip"></div><div class="mag"></div><div class="scope"></div><div class="muzzle"></div></div>
+          <div class="callout scope-label"><i></i>1X/4X VARIABLE OPTIC</div><div class="callout grip-label"><i></i>ANGLED FOREGRIP</div><div class="callout mag-label"><i></i>60-ROUND MAG</div>
           <p class="build-id">BUILD // 00481<br /><b>MK14 · DMR CONFIG</b></p>
         </div>
       </section>
-
       <section class="ticker"><div><span>◈</span> COMMUNITY INTEL <b>•</b> NEW BUILDS DROPPED DAILY <b>•</b> SQUAD UP. BUILD UP. <b>•</b> COMMUNITY INTEL <b>•</b> NEW BUILDS DROPPED DAILY <b>•</b> SQUAD UP. BUILD UP. <b>•</b></div></section>
-
       <section class="content" id="builds">
-        <div class="section-head">
-          <div><p class="eyebrow"><span></span> FIELD-PROVEN CONFIGS</p><h2>Trending <em>this week</em></h2></div>
-          <a href="#builds" class="view-all">VIEW ALL BUILDS <b>→</b></a>
-        </div>
-        <div class="filter-row">
-          <button type="button" class="filter selected" data-filter="ALL">ALL BUILDS <small id="build-count">3</small></button><button type="button" class="filter" data-filter="ASSAULT RIFLES">ASSAULT RIFLES</button><button type="button" class="filter" data-filter="SMGS">SMGS</button><button type="button" class="filter" data-filter="DMRS">DMRS</button><button type="button" class="filter" data-filter="BUDGET">BUDGET</button>
-          <input id="build-search" autocomplete="off" placeholder="SEARCH BUILDS" aria-label="Search builds" />
-          <button type="button" class="sort">SORT: TRENDING <b>⌄</b></button>
-        </div>
-        <div class="build-grid" id="build-grid">
-          <article class="build-card featured">
-            <div class="card-visual weapon-one"><span class="tier">TIER 5</span><button type="button" class="save">♡</button><div class="weapon-silhouette ar"></div><span class="tag top">TOP PICK</span></div>
-            <div class="card-body"><div class="card-meta"><span>ASSAULT RIFLE</span><span class="up">▲ 24%</span></div><h3>The Quiet Operator</h3><p>M4A1 · Full stealth / mid-range</p><div class="card-foot"><span class="price">₭ 184,500</span><span class="author">BY <b>GHOSTRIDER</b></span></div></div>
-          </article>
-          <article class="build-card">
-            <div class="card-visual weapon-two"><span class="tier">TIER 4</span><button type="button" class="save">♡</button><div class="weapon-silhouette smg"></div><span class="tag budget">BUDGET KING</span></div>
-            <div class="card-body"><div class="card-meta"><span>SMG</span><span class="up">▲ 18%</span></div><h3>Zero to Hero</h3><p>MP5 · Close quarters / cheap</p><div class="card-foot"><span class="price">₭ 42,300</span><span class="author">BY <b>RAZE</b></span></div></div>
-          </article>
-          <article class="build-card">
-            <div class="card-visual weapon-three"><span class="tier">TIER 6</span><button type="button" class="save">♡</button><div class="weapon-silhouette dmr"></div><span class="tag meta">META</span></div>
-            <div class="card-body"><div class="card-meta"><span>DMR</span><span class="up">▲ 11%</span></div><h3>Valley Watcher</h3><p>M110 · Long range / precision</p><div class="card-foot"><span class="price">₭ 216,750</span><span class="author">BY <b>SUNDOWN</b></span></div></div>
-          </article>
-        </div>
+        <div class="section-head"><div><p class="eyebrow"><span></span> FIELD-PROVEN CONFIGS</p><h2>Trending <em>this week</em></h2></div><a href="#builds" class="view-all">VIEW ALL BUILDS <b>→</b></a></div>
+        <div class="filter-row"><button type="button" class="filter selected" data-filter="ALL">ALL BUILDS <small id="build-count">3</small></button><button type="button" class="filter" data-filter="ASSAULT RIFLES">ASSAULT RIFLES</button><button type="button" class="filter" data-filter="SMGS">SMGS</button><button type="button" class="filter" data-filter="DMRS">DMRS</button><button type="button" class="filter" data-filter="BUDGET">BUDGET</button><input id="build-search" autocomplete="off" placeholder="SEARCH BUILDS" aria-label="Search builds" /><button type="button" class="sort">SORT: TRENDING <b>⌄</b></button></div>
+        <div class="build-grid" id="build-grid"></div>
       </section>
-
       <section class="workbench" id="workbench">
-        <div class="bench-copy"><p class="eyebrow"><span></span> COMMUNITY TOOLKIT</p><h2>FROM IDEA<br />TO <em>EXTRACTION.</em></h2><p>Stop guessing what works. Assemble a loadout, compare the real numbers, and share it with operators who know the map.</p><a class="primary-btn" href="#submit" data-open-submit>START A BUILD <b>→</b></a></div>
-        <div class="bench-panel"><div class="panel-head"><span>LOADOUT WORKBENCH</span><span class="live-dot">● LIVE STATS</span></div><div class="loadout-row"><div class="slot gun-slot"><span>PRIMARY</span><b>AK-74N</b><i>▰</i></div><div class="slot"><span>HELMET</span><b>IND200</b><i>◒</i></div><div class="slot"><span>ARMOR</span><b>6B23</b><i>▣</i></div></div><div class="stat-bars"><div><label>ERGONOMICS <b>72</b></label><i><em style="width:72%"></em></i></div><div><label>VERTICAL RECOIL <b>41</b></label><i><em style="width:41%"></em></i></div><div><label>HORIZONTAL RECOIL <b>47</b></label><i><em style="width:47%"></em></i></div></div><div class="panel-total"><span>EST. LOADOUT COST</span><b>₭ 142,800</b><button type="button" data-open-submit>SHARE BUILD →</button></div></div>
+        <div class="bench-copy"><p class="eyebrow"><span></span> COMMUNITY TOOLKIT</p><h2>FROM IDEA<br />TO <em>EXTRACTION.</em></h2><p>Stop guessing what works. Assemble a loadout, compare the real numbers, and share it with operators who know the map.</p><a class="primary-btn" href="#submit" data-open-submit onclick="document.getElementById('submit-modal').showModal()">START A BUILD <b>→</b></a></div>
+        <div class="bench-panel"><div class="panel-head"><span>LOADOUT WORKBENCH</span><span class="live-dot">● LIVE STATS</span></div><div class="loadout-row"><div class="slot gun-slot"><span>PRIMARY</span><b>AK-74N</b><i>▰</i></div><div class="slot"><span>HELMET</span><b>IND200</b><i>◒</i></div><div class="slot"><span>ARMOR</span><b>6B23</b><i>▣</i></div></div><div class="stat-bars"><div><label>ERGONOMICS <b>72</b></label><i><em style="width:72%"></em></i></div><div><label>VERTICAL RECOIL <b>41</b></label><i><em style="width:41%"></em></i></div><div><label>HORIZONTAL RECOIL <b>47</b></label><i><em style="width:47%"></em></i></div></div><div class="panel-total"><span>EST. LOADOUT COST</span><b>₭ 142,800</b><button type="button" onclick="document.getElementById('submit-modal').showModal()">SHARE BUILD →</button></div></div>
       </section>
     </main>
     <footer><span>abiBUILDS <i>///</i> COMMUNITY BUILD DATABASE</span><span>FAN-MADE. NOT AFFILIATED WITH MORE FUN STUDIOS.</span><span>© 2026</span></footer>
-
-    <dialog id="auth-modal" class="modal">
-      <button type="button" class="modal-close" data-close aria-label="Close">×</button>
-      <div class="modal-inner"><p class="eyebrow"><span></span> OPERATOR ACCESS</p><h2>Join the <em>line.</em></h2><p>Create a profile to publish builds, save favorites, and earn reputation.</p><form id="auth-form"><input id="auth-name" required minlength="3" autocomplete="name" placeholder="OPERATOR NAME" /><input id="auth-email" required type="email" autocomplete="email" placeholder="EMAIL ADDRESS" /><input id="auth-password" required minlength="8" type="password" autocomplete="new-password" placeholder="PASSWORD (8+ CHARACTERS)" /><button type="submit" class="primary-btn">CREATE PROFILE <b>→</b></button></form><small id="auth-note">Your profile is stored securely when Supabase is connected.</small></div>
-    </dialog>
-
-    <dialog id="submit-modal" class="modal">
-      <button type="button" class="modal-close" data-close aria-label="Close">×</button>
-      <div class="modal-inner"><p class="eyebrow"><span></span> SHARE YOUR CONFIG</p><h2>Post a <em>build.</em></h2><form id="build-form"><input id="build-title" required maxlength="48" placeholder="BUILD NAME" /><div class="form-pair"><select id="build-type"><option>ASSAULT RIFLE</option><option>SMG</option><option>DMR</option><option>SHOTGUN</option><option>PISTOL</option><option>BUDGET</option></select><input id="build-price" required type="number" min="0" placeholder="COST (KOEN)" /></div><input id="build-weapon" required maxlength="40" placeholder="WEAPON + ROLE (e.g. M4A1 · STEALTH)" /><input id="gunsmith-code" maxlength="120" placeholder="GUNSMITH CODE (OPTIONAL)" /><input id="loadout-code" maxlength="120" placeholder="FULL LOADOUT CODE (OPTIONAL)" /><textarea id="build-notes" maxlength="180" placeholder="WHY DOES THIS BUILD WORK?"></textarea><button type="submit" class="primary-btn">PUBLISH BUILD <b>→</b></button></form><small id="submit-note">Sign in first to publish to the community.</small></div>
-    </dialog>
+    <dialog id="auth-modal" class="modal"><button type="button" class="modal-close" data-close aria-label="Close">×</button><div class="modal-inner"><p class="eyebrow"><span></span> OPERATOR ACCESS</p><h2>Join the <em>line.</em></h2><p>Create a profile to publish builds, save favorites, and earn reputation.</p><form id="auth-form"><input id="auth-name" required minlength="3" autocomplete="name" placeholder="OPERATOR NAME" /><input id="auth-email" required type="email" autocomplete="email" placeholder="EMAIL ADDRESS" /><input id="auth-password" required minlength="8" type="password" autocomplete="new-password" placeholder="PASSWORD (8+ CHARACTERS)" /><button type="submit" class="primary-btn">CREATE PROFILE <b>→</b></button></form><small id="auth-note">Your profile is stored securely when Supabase is connected.</small></div></dialog>
+    <dialog id="submit-modal" class="modal"><button type="button" class="modal-close" data-close aria-label="Close">×</button><div class="modal-inner"><p class="eyebrow"><span></span> SHARE YOUR CONFIG</p><h2>Post a <em>build.</em></h2><form id="build-form"><input id="build-title" required maxlength="48" placeholder="BUILD NAME" /><div class="form-pair"><select id="build-type"><option>ASSAULT RIFLE</option><option>SMG</option><option>DMR</option><option>SHOTGUN</option><option>PISTOL</option><option>BUDGET</option></select><input id="build-price" required type="number" min="0" placeholder="COST (KOEN)" /></div><input id="build-weapon" required maxlength="40" placeholder="WEAPON + ROLE (e.g. M4A1 · STEALTH)" /><input id="gunsmith-code" maxlength="120" placeholder="GUNSMITH CODE (OPTIONAL)" /><input id="loadout-code" maxlength="120" placeholder="FULL LOADOUT CODE (OPTIONAL)" /><textarea id="build-notes" maxlength="180" placeholder="WHY DOES THIS BUILD WORK?"></textarea><button type="submit" class="primary-btn">PUBLISH BUILD <b>→</b></button></form><small id="submit-note">Sign in first to publish to the community.</small></div></dialog>
     <div id="toast" role="status"></div>
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="config.js"></script>
     <script src="script.js"></script>
