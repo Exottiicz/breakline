@@ -17,22 +17,11 @@
 <header class="topbar">
   <a class="brand" href="#home" data-page="home"><span class="brand-mark">B</span><span>BREAK<span class="brand-accent">LINE</span></span></a>
   <nav class="main-nav" aria-label="Primary navigation">
-    <a href="#home" data-page="home">HOME</a>
-    <a href="#builds" data-page="builds">BUILDS</a>
-    <a href="#workbench" data-page="workbench">WORKBENCH</a>
-    <a href="#squads" data-page="squads">SQUADS</a>
-    <a href="#market" data-page="market">MARKET</a>
-    <a href="#community" data-page="community">COMMUNITY</a>
+    <a href="#home" data-page="home">HOME</a><a href="#builds" data-page="builds">BUILDS</a><a href="#workbench" data-page="workbench">WORKBENCH</a><a href="#squads" data-page="squads">SQUADS</a><a href="#market" data-page="market">MARKET</a><a href="#community" data-page="community">COMMUNITY</a>
   </nav>
-  <div class="top-actions">
-    <button class="icon-btn" id="global-search" type="button" aria-label="Search">⌕</button>
-    <button class="login" id="auth-button" type="button">LOG IN</button>
-    <button class="join" type="button" data-open-submit>POST BUILD <span>→</span></button>
-  </div>
+  <div class="top-actions"><button class="icon-btn" id="global-search" type="button" aria-label="Search">⌕</button><button class="login" id="auth-button" type="button">LOG IN</button><button class="join" type="button" data-open-submit>POST BUILD <span>→</span></button></div>
 </header>
-<div class="mobile-nav" aria-label="Mobile navigation">
-  <a href="#home" data-page="home">⌂<span>HOME</span></a><a href="#builds" data-page="builds">🔫<span>BUILDS</span></a><a href="#squads" data-page="squads">👥<span>SQUADS</span></a><a href="#community" data-page="community">☢<span>COMMUNITY</span></a>
-</div>
+<div class="mobile-nav" aria-label="Mobile navigation"><a href="#home" data-page="home">⌂<span>HOME</span></a><a href="#builds" data-page="builds">🔫<span>BUILDS</span></a><a href="#squads" data-page="squads">👥<span>SQUADS</span></a><a href="#community" data-page="community">☢<span>COMMUNITY</span></a></div>
 <main>
 <section class="page active" id="page-home" data-section="home"><section class="hero"><div class="hero-grid"></div><div class="hero-copy"><p class="eyebrow"><span></span> THE EXTRACTION SHOOTER COMMUNITY</p><h1>BUILD BETTER.<br><em>EXTRACT MORE.</em></h1><p class="intro">Breakline brings extraction shooter players together to build loadouts, find squads, share clips, compare gear and stay ahead of the meta.</p><div class="hero-actions"><a href="#builds" data-page="builds" class="primary-btn">EXPLORE BUILDS <b>→</b></a><a href="#squads" data-page="squads" class="text-btn">FIND A SQUAD <b>↗</b></a></div><div class="hero-stats"><div><strong id="stat-builds">0</strong><span>COMMUNITY BUILDS</span></div><div><strong>5+</strong><span>EXTRACTION GAMES</span></div><div><strong>24/7</strong><span>COMMUNITY INTEL</span></div></div></div><div class="hero-art"><div class="target-ring r1"></div><div class="target-ring r2"></div><div class="target-ring r3"></div><div class="rifle"><div class="barrel"></div><div class="rail"></div><div class="receiver"></div><div class="stock"></div><div class="grip"></div><div class="mag"></div><div class="scope"></div><div class="muzzle"></div></div><div class="callout scope-label"><i></i> BUILD · SQUAD · EXTRACT</div><div class="callout grip-label"><i></i> COMMUNITY LOADOUTS</div><p class="build-id">BREAKLINE // 001<br><b>EXTRACTION COMMUNITY</b></p></div></section><div class="ticker"><div>◈ BREAKLINE INTEL <b>•</b> NEW BUILDS <b>•</b> FIND YOUR SQUAD <b>•</b> COMMUNITY EVENTS <b>•</b> CLIPS & GUIDES <b>•</b> BREAKLINE INTEL <b>•</b></div></div><section class="content compact"><div class="section-head"><div><p class="eyebrow"><span></span> START HERE</p><h2>Your <em>loadout.</em> Your squad.</h2></div></div><div class="feature-grid"><button class="feature-card" data-page="builds"><b>🔫</b><h3>BUILDS</h3><p>Battle-tested loadouts, budgets and weapon configs.</p><span>EXPLORE →</span></button><button class="feature-card" data-page="squads"><b>👥</b><h3>SQUADS</h3><p>Find operators who are actually looking to play.</p><span>FIND PLAYERS →</span></button><button class="feature-card" data-page="community"><b>🏆</b><h3>COMMUNITY</h3><p>Events, leaderboards, clips and community challenges.</p><span>ENTER COMMUNITY →</span></button><button class="feature-card" data-page="market"><b>💰</b><h3>MARKET</h3><p>Compare prices, gear and economy-focused builds.</p><span>OPEN MARKET →</span></button></div></section></section>
 <section class="page" id="page-builds" data-section="builds"><div class="subnav"><b>🔫 BUILDS</b><a class="selected" href="#builds">🔥 TRENDING</a><a href="#builds">🆕 NEW</a><a href="#builds">💰 BUDGET</a><a href="#builds">🎯 META</a><a href="#builds">⭐ TOP RATED</a></div><section class="content"><div class="section-head"><div><p class="eyebrow"><span></span> COMMUNITY LOADOUT DATABASE</p><h2>Trending <em>builds.</em></h2></div><div class="hero-actions"><button class="text-btn" type="button" data-manage-builds>MANAGE MY BUILDS ↗</button><button class="primary-btn" data-open-submit>+ POST BUILD <b>→</b></button></div></div><div class="filter-row"><button class="filter selected" data-filter="ALL">ALL <small id="build-count">0</small></button><button class="filter" data-filter="ASSAULT RIFLE">🔫 AR</button><button class="filter" data-filter="SMG">⚡ SMG</button><button class="filter" data-filter="DMR">🎯 DMR</button><button class="filter" data-filter="SHOTGUN">💥 SHOTGUN</button><button class="filter" data-filter="BUDGET">💰 BUDGET</button><input id="build-search" autocomplete="off" placeholder="SEARCH BUILDS" aria-label="Search builds" /><select id="build-sort" class="sort"><option value="trending">SORT: TRENDING</option><option value="newest">SORT: NEWEST</option><option value="price-low">PRICE: LOW → HIGH</option><option value="price-high">PRICE: HIGH → LOW</option></select></div><div class="build-grid" id="build-grid"></div></section></section>
@@ -49,5 +38,6 @@
 <script src="config.js"></script>
 <script src="script.js"></script>
 <script src="build-management.js"></script>
+<script src="operator-identity.js"></script>
 </body>
 </html>
