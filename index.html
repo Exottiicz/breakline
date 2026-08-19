@@ -3,8 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BREAKLINE — Arena Breakout: Infinite Builds</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
+<title>abiBUILDS — Arena Breakout: Infinite Builds</title>    <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
@@ -13,8 +12,7 @@
   <body>
     <div class="noise"></div>
     <header class="topbar">
-      <a href="#" class="brand"><span class="brand-mark">B</span><span>BREAKLINE</span></a>
-      <nav>
+<a href="#" class="brand"><span class="brand-mark">a</span><span>abi<span class="brand-accent">BUILDS</span></span></a>      <nav>
         <a class="active" href="#builds">BUILDS</a>
         <a href="#workbench">WORKBENCH</a>
         <a href="#squads">SQUADS</a>
@@ -89,7 +87,7 @@
         <div class="bench-panel"><div class="panel-head"><span>LOADOUT WORKBENCH</span><span class="live-dot">● LIVE STATS</span></div><div class="loadout-row"><div class="slot gun-slot"><span>PRIMARY</span><b>AK-74N</b><i>▰</i></div><div class="slot"><span>HELMET</span><b>IND200</b><i>◒</i></div><div class="slot"><span>ARMOR</span><b>6B23</b><i>▣</i></div></div><div class="stat-bars"><div><label>ERGONOMICS <b>72</b></label><i><em style="width:72%"></em></i></div><div><label>VERTICAL RECOIL <b>41</b></label><i><em style="width:41%"></em></i></div><div><label>HORIZONTAL RECOIL <b>47</b></label><i><em style="width:47%"></em></i></div></div><div class="panel-total"><span>EST. LOADOUT COST</span><b>₭ 142,800</b><button>SHARE BUILD →</button></div></div>
       </section>
     </main>
-    <footer><span>BREAKLINE <i>///</i> COMMUNITY BUILD DATABASE</span><span>FAN-MADE. NOT AFFILIATED WITH MORE FUN STUDIOS.</span><span>© 2026</span></footer>
+    <footer><span>abiBUILDS <i>///</i> COMMUNITY BUILD DATABASE</span><span>FAN-MADE. NOT AFFILIATED WITH MORE FUN STUDIOS.</span><span>© 2026</span></footer>
     <dialog id="auth-modal" class="modal"><button class="modal-close" data-close>×</button><div class="modal-inner"><p class="eyebrow"><span></span> OPERATOR ACCESS</p><h2>Join the <em>line.</em></h2><p>Create a profile to publish builds, save favorites, and earn reputation.</p><form id="auth-form"><input id="auth-name" required minlength="3" placeholder="OPERATOR NAME" /><input id="auth-email" required type="email" placeholder="EMAIL ADDRESS" /><input id="auth-password" required minlength="8" type="password" placeholder="PASSWORD (8+ CHARACTERS)" /><button class="primary-btn">CREATE PROFILE <b>→</b></button></form><small id="auth-note">Your profile is stored securely when Supabase is connected.</small></div></dialog>
     <dialog id="submit-modal" class="modal"><button class="modal-close" data-close>×</button><div class="modal-inner"><p class="eyebrow"><span></span> SHARE YOUR CONFIG</p><h2>Post a <em>build.</em></h2><form id="build-form"><input id="build-title" required maxlength="48" placeholder="BUILD NAME" /><div class="form-pair"><select id="build-type"><option>ASSAULT RIFLE</option><option>SMG</option><option>DMR</option><option>SHOTGUN</option><option>PISTOL</option><option>BUDGET</option></select><input id="build-price" required type="number" min="0" placeholder="COST (KOEN)" /></div><input id="build-weapon" required maxlength="40" placeholder="WEAPON + ROLE (e.g. M4A1 · STEALTH)" /><textarea id="build-notes" maxlength="180" placeholder="WHY DOES THIS BUILD WORK?"></textarea><button class="primary-btn">PUBLISH BUILD <b>→</b></button></form><small id="submit-note">Sign in first to publish to the community.</small></div></dialog>
     <div id="toast" role="status"></div>
