@@ -1,334 +1,105 @@
 (() => {
   'use strict';
-
-  const $ = (selector, root = document) => root.querySelector(selector);
-  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => [...r.querySelectorAll(s)];
   const config = window.BREAKLINE_CONFIG || {};
   const hasSupabase = Boolean(window.supabase && config.supabaseUrl && config.supabaseAnonKey);
   const db = hasSupabase ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
+  const state = { user:null, profileName:'', authMode:'login', builds:[], filter:'ALL', search:'', sort:'trending', saved:new Set(JSON.parse(localStorage.getItem('breakline_saved') || '[]')) };
 
-  const state = {
-    user: null,
-    profileName: '',
-    builds: [],
-    filter: 'ALL',
-    search: '',
-    sort: 'trending',
-    saved: new Set(JSON.parse(localStorage.getItem('breakline_saved') || '[]'))
-  };
+  const toast = (message,type='info') => { const el=$('#toast'); if(!el)return; el.textContent=message; el.dataset.type=type; el.classList.add('show'); clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.classList.remove('show'),3200); };
+  const openModal = m => { if(!m)return; if(typeof m.showModal==='function'&&!m.open)m.showModal(); else m.setAttribute('open',''); };
+  const closeModal = m => { if(!m)return; if(typeof m.close==='function'&&m.open)m.close(); else m.removeAttribute('open'); };
+  const escapeHtml = v => String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c]));
+  const formatKoen = v => `₭ ${Number(v||0).toLocaleString('en-US')}`;
 
-  const toast = (message, type = 'info') => {
-    const el = $('#toast');
-    if (!el) return;
-    el.textContent = message;
-    el.dataset.type = type;
-    el.classList.add('show');
-    clearTimeout(toast.timer);
-    toast.timer = setTimeout(() => el.classList.remove('show'), 3200);
-  };
-
-  const openModal = (modal) => {
-    if (!modal) return;
-    if (typeof modal.showModal === 'function') modal.showModal();
-    else modal.setAttribute('open', '');
-  };
-
-  const closeModal = (modal) => {
-    if (!modal) return;
-    if (typeof modal.close === 'function') modal.close();
-    else modal.removeAttribute('open');
-  };
-
-  const escapeHtml = (value) => String(value ?? '').replace(/[&<>\"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#039;' }[ch]));
-
-  const formatKoen = (value) => `₭ ${Number(value || 0).toLocaleString('en-US')}`;
-
-  function setAuthUi() {
-    const login = $('[data-open-auth]');
-    const submitNote = $('#submit-note');
-    const authNote = $('#auth-note');
-    if (login) login.textContent = state.user ? `LOG OUT (${state.profileName || 'OPERATOR'})` : 'LOG IN';
-    if (submitNote) submitNote.textContent = state.user
-      ? `Signed in as ${state.profileName || state.user.email}. Your build will publish to the community.`
-      : 'Sign in first to publish to the community.';
-    if (authNote) authNote.textContent = state.user
-      ? `Signed in as ${state.profileName || state.user.email}.`
-      : 'Your profile is stored securely when Supabase is connected.';
+  function setAuthMode(mode) {
+    state.authMode=mode;
+    const title=$('#auth-title'), eyebrow=$('#auth-eyebrow'), submit=$('#auth-submit'), toggle=$('#auth-toggle'), name=$('#auth-name'), note=$('#auth-note');
+    if(!title)return;
+    const login=mode==='login';
+    eyebrow.innerHTML=`<span></span> ${login?'OPERATOR LOGIN':'OPERATOR ACCESS'}`;
+    title.innerHTML=login?'Welcome <em>back.</em>':'Join the <em>line.</em>';
+    submit.innerHTML=login?'LOG IN <b>→</b>':'CREATE PROFILE <b>→</b>';
+    toggle.innerHTML=login?'NEW HERE? <b>CREATE AN ACCOUNT</b>':'ALREADY HAVE AN ACCOUNT? <b>LOG IN</b>';
+    name.style.display=login?'none':'';
+    name.required=!login;
+    note.textContent=login?'Use the email and password for your abiBUILDS account.':'Create a profile to publish builds, save favorites, and earn reputation.';
   }
 
-  async function refreshSession() {
-    if (!db) return setAuthUi();
-    const { data, error } = await db.auth.getSession();
-    if (error) console.warn('Supabase session error:', error.message);
-    state.user = data?.session?.user || null;
-    state.profileName = state.user?.user_metadata?.operator_name || state.user?.user_metadata?.name || '';
+  function setAuthUi(){
+    const login=$('[data-open-auth]'), submitNote=$('#submit-note');
+    if(login)login.textContent=state.user?`LOG OUT (${state.profileName||'OPERATOR'})`:'LOG IN';
+    if(submitNote)submitNote.textContent=state.user?`Signed in as ${state.profileName||state.user.email}. Your build will publish to the community.`:'Sign in first to publish a build.';
+  }
+
+  async function refreshSession(){
+    if(!db)return setAuthUi();
+    const {data,error}=await db.auth.getSession();
+    if(error)console.warn('Supabase session error:',error.message);
+    state.user=data?.session?.user||null;
+    state.profileName=state.user?.user_metadata?.operator_name||state.user?.user_metadata?.name||'';
     setAuthUi();
   }
 
-  function buildMatches(build) {
-    const type = String(build.type || '').toUpperCase();
-    const haystack = [build.title, build.type, build.weapon, build.notes, build.author].join(' ').toLowerCase();
-    const matchesFilter = state.filter === 'ALL' || type === state.filter || (state.filter === 'BUDGET' && type === 'BUDGET');
-    const matchesSearch = !state.search || haystack.includes(state.search.toLowerCase());
-    return matchesFilter && matchesSearch;
-  }
-
-  function sortBuilds(builds) {
-    return [...builds].sort((a, b) => {
-      if (state.sort === 'newest') return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-      if (state.sort === 'price-low') return Number(a.price || 0) - Number(b.price || 0);
-      if (state.sort === 'price-high') return Number(b.price || 0) - Number(a.price || 0);
-      return (Number(b.likes || 0) - Number(a.likes || 0)) || (new Date(b.created_at || 0) - new Date(a.created_at || 0));
-    });
-  }
-
-  function renderBuilds() {
-    const grid = $('#build-grid');
-    const count = $('#build-count');
-    if (!grid) return;
-
-    const visible = sortBuilds(state.builds).filter(buildMatches);
-    if (count) count.textContent = visible.length;
-
-    if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state">NO BUILDS MATCH YOUR SEARCH.</div>';
-      return;
-    }
-
-    grid.innerHTML = visible.map((build, index) => {
-      const id = escapeHtml(build.id);
-      const type = escapeHtml(build.type || 'BUILD');
-      const tag = type === 'BUDGET' ? 'BUDGET KING' : index === 0 ? 'TOP PICK' : 'COMMUNITY';
-      const saved = state.saved.has(String(build.id));
-      return `
-        <article class="build-card ${index === 0 ? 'featured' : ''}" data-build-id="${id}">
-          <div class="card-visual weapon-${(index % 3) + 1}">
-            <span class="tier">COMMUNITY</span>
-            <button class="save ${saved ? 'saved' : ''}" data-save-build="${id}" aria-label="Save build">${saved ? '♥' : '♡'}</button>
-            <div class="weapon-silhouette ${type.toLowerCase().includes('smg') ? 'smg' : type.toLowerCase().includes('dmr') ? 'dmr' : 'ar'}"></div>
-            <span class="tag ${tag === 'BUDGET KING' ? 'budget' : 'top'}">${tag}</span>
-          </div>
-          <div class="card-body">
-            <div class="card-meta"><span>${type}</span><span class="up">▲ ${Number(build.likes || 0)} likes</span></div>
-            <h3>${escapeHtml(build.title)}</h3>
-            <p>${escapeHtml(build.weapon)}</p>
-            <div class="card-foot"><span class="price">${formatKoen(build.price)}</span><span class="author">BY <b>${escapeHtml(build.author || 'OPERATOR')}</b></span></div>
-          </div>
-        </article>`;
-    }).join('');
-  }
-
-  async function loadBuilds() {
-    if (!db) {
-      state.builds = [];
-      renderBuilds();
-      return;
-    }
-    const { data, error } = await db.from('builds').select('*').order('likes', { ascending: false }).order('created_at', { ascending: false }).limit(100);
-    if (error) {
-      console.warn('Could not load builds:', error.message);
-      toast('Community builds could not be loaded. Check the Supabase table/policies.', 'error');
-      state.builds = [];
-    } else {
-      state.builds = data || [];
-    }
-    renderBuilds();
-  }
-
-  async function signUp(event) {
+  async function handleAuth(event){
     event.preventDefault();
-    if (!db) return toast('Supabase is not configured.', 'error');
-    const name = $('#auth-name')?.value.trim();
-    const email = $('#auth-email')?.value.trim();
-    const password = $('#auth-password')?.value;
-    if (!name || !email || !password) return;
-
-    const button = $('#auth-form button[type="submit"]') || $('#auth-form .primary-btn');
-    if (button) button.disabled = true;
-    try {
-      const { data, error } = await db.auth.signUp({
-        email,
-        password,
-        options: { data: { operator_name: name } }
-      });
-      if (error) throw error;
-      state.user = data.user || null;
-      state.profileName = name;
+    if(!db)return toast('Supabase is not configured.','error');
+    const email=$('#auth-email')?.value.trim(), password=$('#auth-password')?.value, name=$('#auth-name')?.value.trim();
+    if(!email||!password||(state.authMode==='signup'&&!name))return;
+    const button=$('#auth-submit'); if(button)button.disabled=true;
+    try{
+      let data,error;
+      if(state.authMode==='login'){
+        ({data,error}=await db.auth.signInWithPassword({email,password}));
+      }else{
+        ({data,error}=await db.auth.signUp({email,password,options:{data:{operator_name:name}}}));
+      }
+      if(error)throw error;
+      state.user=data.user||null;
+      state.profileName=state.user?.user_metadata?.operator_name||name||'';
       setAuthUi();
-      if (data.session) {
-        closeModal($('#auth-modal'));
-        toast('Profile created. You are signed in.', 'success');
-      } else {
-        toast('Account created. Check your email to confirm it, then log in.', 'success');
+      if(state.authMode==='login'){
+        closeModal($('#auth-modal')); toast('Logged in successfully.','success');
+      }else if(data.session){
+        closeModal($('#auth-modal')); toast('Account created. You are signed in.','success');
+      }else{
+        toast('Account created. Check your email to confirm it, then log in.','success');
+        setAuthMode('login');
       }
       $('#auth-form')?.reset();
-    } catch (error) {
-      toast(error.message || 'Could not create the account.', 'error');
-    } finally {
-      if (button) button.disabled = false;
-    }
+    }catch(error){
+      const msg=error?.message||'Authentication failed.';
+      toast(msg,'error');
+      const note=$('#auth-note'); if(note)note.textContent=msg;
+    }finally{if(button)button.disabled=false;}
   }
 
-  async function logOut() {
-    if (!db || !state.user) return;
-    const { error } = await db.auth.signOut();
-    if (error) return toast(error.message, 'error');
-    state.user = null;
-    state.profileName = '';
-    setAuthUi();
-    toast('Logged out.', 'success');
-  }
+  async function logOut(){ if(!db||!state.user)return; const {error}=await db.auth.signOut(); if(error)return toast(error.message,'error'); state.user=null;state.profileName='';setAuthUi();toast('Logged out.','success'); }
 
-  async function submitBuild(event) {
-    event.preventDefault();
-    if (!db) return toast('Supabase is not configured.', 'error');
-    if (!state.user) {
-      closeModal($('#submit-modal'));
-      openModal($('#auth-modal'));
-      return toast('Log in first to publish a build.', 'error');
-    }
+  function buildMatches(b){ const type=String(b.type||'').toUpperCase(), hay=[b.title,b.type,b.weapon,b.notes,b.author].join(' ').toLowerCase(); return (state.filter==='ALL'||type===state.filter||(state.filter==='BUDGET'&&type==='BUDGET'))&&(!state.search||hay.includes(state.search.toLowerCase())); }
+  function sortBuilds(bs){ return [...bs].sort((a,b)=>state.sort==='newest'?new Date(b.created_at||0)-new Date(a.created_at||0):state.sort==='price-low'?Number(a.price||0)-Number(b.price||0):state.sort==='price-high'?Number(b.price||0)-Number(a.price||0):(Number(b.likes||0)-Number(a.likes||0))||(new Date(b.created_at||0)-new Date(a.created_at||0))); }
+  function renderBuilds(){ const grid=$('#build-grid');if(!grid)return;const visible=sortBuilds(state.builds).filter(buildMatches);const count=$('#build-count');if(count)count.textContent=visible.length;if(!visible.length){grid.innerHTML='<div class="empty-state">NO BUILDS MATCH YOUR SEARCH.</div>';return;}grid.innerHTML=visible.map((b,i)=>{const id=escapeHtml(b.id),type=escapeHtml(b.type||'BUILD'),saved=state.saved.has(String(b.id));return `<article class="build-card ${i===0?'featured':''}"><div class="card-visual weapon-${(i%3)+1}"><span class="tier">COMMUNITY</span><button type="button" class="save ${saved?'saved':''}" data-save-build="${id}">${saved?'♥':'♡'}</button><div class="weapon-silhouette ${type.toLowerCase().includes('smg')?'smg':type.toLowerCase().includes('dmr')?'dmr':'ar'}"></div><span class="tag top">${type==='BUDGET'?'BUDGET KING':i===0?'TOP PICK':'COMMUNITY'}</span></div><div class="card-body"><div class="card-meta"><span>${type}</span><span class="up">▲ ${Number(b.likes||0)} likes</span></div><h3>${escapeHtml(b.title)}</h3><p>${escapeHtml(b.weapon)}</p><div class="card-foot"><span class="price">${formatKoen(b.price)}</span><span class="author">BY <b>${escapeHtml(b.author||'OPERATOR')}</b></span></div></div></article>`;}).join(''); }
+  async function loadBuilds(){ if(!db){state.builds=[];return renderBuilds();}const {data,error}=await db.from('builds').select('*').order('likes',{ascending:false}).order('created_at',{ascending:false}).limit(100);if(error){console.warn(error.message);state.builds=[];}else state.builds=data||[];renderBuilds(); }
+  async function submitBuild(e){e.preventDefault();if(!db)return toast('Supabase is not configured.','error');if(!state.user){closeModal($('#submit-modal'));setAuthMode('login');openModal($('#auth-modal'));return toast('Log in first to publish a build.','error');}const payload={title:$('#build-title')?.value.trim(),type:$('#build-type')?.value,weapon:$('#build-weapon')?.value.trim(),price:Number($('#build-price')?.value||0),notes:$('#build-notes')?.value.trim(),author:state.profileName||state.user.email?.split('@')[0]||'OPERATOR',user_id:state.user.id};try{const {error}=await db.from('builds').insert(payload);if(error)throw error;$('#build-form')?.reset();closeModal($('#submit-modal'));await loadBuilds();toast('Build published successfully.','success');}catch(err){toast(err.message||'Could not publish the build.','error');}}
 
-    const payload = {
-      title: $('#build-title')?.value.trim(),
-      type: $('#build-type')?.value,
-      weapon: $('#build-weapon')?.value.trim(),
-      price: Number($('#build-price')?.value || 0),
-      notes: [$('#build-notes')?.value.trim(), $('#gunsmith-code')?.value.trim() ? `Gunsmith: ${$('#gunsmith-code').value.trim()}` : '', $('#loadout-code')?.value.trim() ? `Loadout: ${$('#loadout-code').value.trim()}` : ''].filter(Boolean).join(' | '),
-      author: state.profileName || state.user.user_metadata?.operator_name || state.user.email?.split('@')[0] || 'OPERATOR',
-      user_id: state.user.id
-    };
-
-    if (!payload.title || !payload.weapon || payload.price < 0) return toast('Please complete the required build fields.', 'error');
-    const button = $('#build-form .primary-btn');
-    if (button) button.disabled = true;
-    try {
-      const { error } = await db.from('builds').insert(payload);
-      if (error) throw error;
-      $('#build-form')?.reset();
-      closeModal($('#submit-modal'));
-      await loadBuilds();
-      location.hash = 'builds';
-      toast('Build published successfully.', 'success');
-    } catch (error) {
-      toast(error.message || 'Could not publish the build. Check your Supabase policies.', 'error');
-    } finally {
-      if (button) button.disabled = false;
-    }
-  }
-
-  async function toggleSave(id) {
-    const key = String(id);
-    if (state.saved.has(key)) state.saved.delete(key);
-    else state.saved.add(key);
-    localStorage.setItem('breakline_saved', JSON.stringify([...state.saved]));
-    renderBuilds();
-    toast(state.saved.has(key) ? 'Build saved.' : 'Build removed from saved builds.', 'success');
-
-    if (db && state.saved.has(key) && state.user) {
-      const build = state.builds.find(item => String(item.id) === key);
-      if (build) {
-        const { error } = await db.from('builds').update({ likes: Number(build.likes || 0) + 1 }).eq('id', build.id);
-        if (!error) {
-          build.likes = Number(build.likes || 0) + 1;
-          renderBuilds();
-        }
-      }
-    }
-  }
-
-  function scrollToHash(hash) {
-    const id = hash.replace('#', '');
-    if (!id) return window.scrollTo({ top: 0, behavior: 'smooth' });
-    const target = document.getElementById(id);
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    else if (id === 'squads' || id === 'market') toast(`${id.toUpperCase()} is coming soon.`, 'info');
-  }
-
-  function setup() {
-    document.addEventListener('click', async (event) => {
-      const openAuth = event.target.closest('[data-open-auth]');
-      const openSubmit = event.target.closest('[data-open-submit]');
-      const close = event.target.closest('[data-close]');
-      const save = event.target.closest('[data-save-build]');
-      const navLink = event.target.closest('a[href^="#"]');
-
-      if (openAuth) {
-        event.preventDefault();
-        if (state.user) return logOut();
-        openModal($('#auth-modal'));
-      }
-      if (openSubmit) {
-        event.preventDefault();
-        openModal($('#submit-modal'));
-      }
-      if (close) closeModal(close.closest('dialog'));
-      if (save) {
-        event.preventDefault();
-        await toggleSave(save.dataset.saveBuild);
-      }
-      if (navLink) {
-        const href = navLink.getAttribute('href');
-        if (href === '#') {
-          event.preventDefault();
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else {
-          event.preventDefault();
-          scrollToHash(href);
-        }
-      }
+  function setup(){
+    setAuthMode('login');
+    document.addEventListener('click',async e=>{
+      const auth=e.target.closest('[data-open-auth]'), submit=e.target.closest('[data-open-submit]'), close=e.target.closest('[data-close]'), toggle=e.target.closest('#auth-toggle'), save=e.target.closest('[data-save-build]');
+      if(auth){e.preventDefault();if(state.user)return logOut();setAuthMode('login');openModal($('#auth-modal'));}
+      if(submit){e.preventDefault();openModal($('#submit-modal'));}
+      if(toggle){e.preventDefault();setAuthMode(state.authMode==='login'?'signup':'login');}
+      if(close)closeModal(close.closest('dialog'));
+      if(save){e.preventDefault();const id=String(save.dataset.saveBuild);state.saved.has(id)?state.saved.delete(id):state.saved.add(id);localStorage.setItem('breakline_saved',JSON.stringify([...state.saved]));renderBuilds();}
     });
-
-    document.addEventListener('click', (event) => {
-      const filter = event.target.closest('[data-filter]');
-      if (!filter) return;
-      $$('.filter[data-filter]').forEach(btn => btn.classList.toggle('selected', btn === filter));
-      state.filter = filter.dataset.filter;
-      renderBuilds();
-    });
-
-    $('#build-search')?.addEventListener('input', (event) => {
-      state.search = event.target.value.trim();
-      renderBuilds();
-    });
-
-    $('.sort')?.addEventListener('click', () => {
-      const options = ['trending', 'newest', 'price-low', 'price-high'];
-      const labels = ['TRENDING', 'NEWEST', 'PRICE LOW', 'PRICE HIGH'];
-      const next = (options.indexOf(state.sort) + 1) % options.length;
-      state.sort = options[next];
-      $('.sort').innerHTML = `SORT: ${labels[next]} <b>⌄</b>`;
-      renderBuilds();
-    });
-
-    $('#auth-form')?.addEventListener('submit', signUp);
-    $('#build-form')?.addEventListener('submit', submitBuild);
-
-    ['#auth-modal', '#submit-modal'].forEach(selector => {
-      const modal = $(selector);
-      modal?.addEventListener('click', event => {
-        if (event.target === modal) closeModal(modal);
-      });
-    });
-
-    $('.icon-btn')?.addEventListener('click', () => {
-      $('#build-search')?.focus();
-      scrollToHash('#builds');
-    });
-
-    $$('.primary-btn').forEach(button => {
-      const text = button.textContent.toUpperCase();
-      if (text.includes('START A BUILD')) button.addEventListener('click', event => { event.preventDefault(); openModal($('#submit-modal')); });
-      if (text.includes('SHARE BUILD')) button.addEventListener('click', event => { event.preventDefault(); openModal($('#submit-modal')); });
-    });
-
+    $$('.filter[data-filter]').forEach(btn=>btn.addEventListener('click',()=>{$$('.filter[data-filter]').forEach(x=>x.classList.toggle('selected',x===btn));state.filter=btn.dataset.filter;renderBuilds();}));
+    $('#build-search')?.addEventListener('input',e=>{state.search=e.target.value.trim();renderBuilds();});
+    $('#auth-form')?.addEventListener('submit',handleAuth);
+    $('#build-form')?.addEventListener('submit',submitBuild);
+    ['#auth-modal','#submit-modal'].forEach(s=>$(s)?.addEventListener('click',e=>{if(e.target===$(s))closeModal($(s));}));
     refreshSession().then(loadBuilds);
-    if (db) db.auth.onAuthStateChange((_event, session) => {
-      state.user = session?.user || null;
-      state.profileName = state.user?.user_metadata?.operator_name || state.user?.user_metadata?.name || '';
-      setAuthUi();
-    });
+    if(db)db.auth.onAuthStateChange((_event,session)=>{state.user=session?.user||null;state.profileName=state.user?.user_metadata?.operator_name||'';setAuthUi();});
   }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup, { once: true });
-  else setup();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
 })();
