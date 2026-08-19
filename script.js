@@ -1,25 +1,100 @@
-const cfg = window.BREAKLINE_CONFIG || {};
-const client = cfg.supabaseUrl && cfg.supabaseAnonKey ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
-const starter = [
-  {title:'The Quiet Operator',type:'ASSAULT RIFLE',weapon:'M4A1 · Full stealth / mid-range',price:184500,author:'GHOSTRIDER',likes:24,style:'weapon-one',tag:'TOP PICK',silhouette:'ar'},
-  {title:'Zero to Hero',type:'SMG',weapon:'MP5 · Close quarters / cheap',price:42300,author:'RAZE',likes:18,style:'weapon-two',tag:'BUDGET KING',tagClass:'budget',silhouette:'smg'},
-  {title:'Valley Watcher',type:'DMR',weapon:'M110 · Long range / precision',price:216750,author:'SUNDOWN',likes:11,style:'weapon-three',tag:'META',tagClass:'meta',silhouette:'dmr'}
-];
-let builds = JSON.parse(localStorage.getItem('breakline-builds') || 'null') || starter;
-let operator = JSON.parse(localStorage.getItem('breakline-operator') || 'null'), filter = 'ALL', query = '';
-const grid = document.querySelector('#build-grid'), toast = document.querySelector('#toast');
-const notify = m => { toast.textContent=m; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),2800); };
-const safe = v => { const x=document.createElement('span'); x.textContent=v||''; return x.innerHTML; };
-function card(b,i){const tone=b.style||['weapon-one','weapon-two','weapon-three'][i%3],tag=b.tag||(b.type==='BUDGET'?'BUDGET':'COMMUNITY');return `<article class="build-card"><div class="card-visual ${tone}"><span class="tier">COMMUNITY</span><button class="save" data-save="${i}" aria-label="Save build">♡</button><div class="weapon-silhouette ${b.silhouette||'ar'}"></div><span class="tag ${b.tagClass||''}">${tag}</span></div><div class="card-body"><div class="card-meta"><span>${b.type}</span><span class="up">▲ ${b.likes||0}</span></div><h3>${safe(b.title)}</h3><p>${safe(b.weapon)}</p><div class="card-foot"><span class="price">₭ ${Number(b.price).toLocaleString()}</span><span class="author">BY <b>${safe(b.author)}</b></span></div></div></article>`}
-function render(){const shown=builds.filter(b=>(filter==='ALL'||b.type===filter||(filter==='BUDGET'&&Number(b.price)<60000))&&`${b.title} ${b.weapon} ${b.type}`.toLowerCase().includes(query));grid.innerHTML=shown.length?shown.map(card).join(''):'<p class="empty-state">NO BUILDS MATCH THIS INTEL.</p>';document.querySelector('#build-count').textContent=builds.length}
-function updateUser(){if(operator)document.querySelector('.login').textContent=operator.name.toUpperCase()}
-async function loadCommunity(){if(!client)return;const {data,error}=await client.from('builds').select('*').order('created_at',{ascending:false});if(error){notify('COMMUNITY DATABASE COULD NOT LOAD.');return}builds=data.map(b=>({...b}));render();const {data:{user}}=await client.auth.getUser();if(user){operator={id:user.id,name:user.user_metadata.display_name||user.email.split('@')[0],email:user.email};updateUser()}}
-document.querySelectorAll('[data-open-auth]').forEach(x=>x.addEventListener('click',()=>document.querySelector('#auth-modal').showModal()));
-document.querySelectorAll('[data-open-submit]').forEach(x=>x.addEventListener('click',()=>{if(!operator){notify('CREATE A PROFILE BEFORE POSTING.');document.querySelector('#auth-modal').showModal()}else document.querySelector('#submit-modal').showModal()}));
-document.querySelectorAll('[data-close]').forEach(x=>x.addEventListener('click',()=>x.closest('dialog').close()));
-document.querySelectorAll('.filter').forEach(x=>x.addEventListener('click',()=>{document.querySelector('.filter.selected').classList.remove('selected');x.classList.add('selected');filter=x.dataset.filter;render()}));
-document.querySelector('#build-search').addEventListener('input',e=>{query=e.target.value.toLowerCase();render()});
-grid.addEventListener('click',e=>{if(e.target.dataset.save===undefined)return;const n=Number(e.target.dataset.save),saved=JSON.parse(localStorage.getItem('breakline-saved')||'[]'),has=saved.includes(n);localStorage.setItem('breakline-saved',JSON.stringify(has?saved.filter(x=>x!==n):[...saved,n]));e.target.textContent=has?'♡':'♥';notify(has?'REMOVED FROM SAVED BUILDS.':'BUILD SAVED.')});
-document.querySelector('#auth-form').addEventListener('submit',async e=>{e.preventDefault();const name=document.querySelector('#auth-name').value.trim(),email=document.querySelector('#auth-email').value.trim(),password=document.querySelector('#auth-password').value;if(client){const {data,error}=await client.auth.signUp({email,password,options:{data:{display_name:name}}});if(error){notify(error.message.toUpperCase());return}operator={id:data.user?.id,name,email};notify(data.session?'PROFILE CREATED.':'CHECK YOUR EMAIL TO CONFIRM YOUR PROFILE.')}else{operator={name,email};localStorage.setItem('breakline-operator',JSON.stringify(operator));notify('PROFILE CREATED IN DEMO MODE.')}document.querySelector('#auth-modal').close();updateUser()});
-document.querySelector('#build-form').addEventListener('submit',async e=>{e.preventDefault();if(!operator)return;const b={title:document.querySelector('#build-title').value.trim(),type:document.querySelector('#build-type').value,weapon:document.querySelector('#build-weapon').value.trim(),price:Number(document.querySelector('#build-price').value),notes:document.querySelector('#build-notes').value.trim(),author:operator.name,likes:0};if(client){const {error}=await client.from('builds').insert({...b,user_id:operator.id});if(error){notify(error.message.toUpperCase());return}}else{builds.unshift(b);localStorage.setItem('breakline-builds',JSON.stringify(builds))}document.querySelector('#build-form').reset();document.querySelector('#submit-modal').close();filter='ALL';document.querySelector('.filter.selected').classList.remove('selected');document.querySelector('[data-filter="ALL"]').classList.add('selected');if(client)await loadCommunity();else render();document.querySelector('#builds').scrollIntoView({behavior:'smooth'});notify(client?'BUILD PUBLISHED.':'BUILD PUBLISHED IN DEMO MODE.')});
-render();updateUser();loadCommunity();
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>abiBUILDS — Arena Breakout: Infinite Builds</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="community.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <header class="topbar">
+      <a href="#" class="brand"><span class="brand-mark">a</span><span>abi<span class="brand-accent">BUILDS</span></span></a>
+      <nav>
+        <a class="active" href="#builds">BUILDS</a>
+        <a href="#workbench">WORKBENCH</a>
+        <a href="#squads">SQUADS</a>
+        <a href="#market">MARKET</a>
+      </nav>
+      <div class="top-actions">
+        <button class="icon-btn" aria-label="Search">⌕</button>
+        <button class="login" data-open-auth>LOG IN</button>
+        <button class="join" data-open-submit>JOIN THE LINE <span>→</span></button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-grid"></div>
+        <div class="hero-copy">
+          <p class="eyebrow"><span></span> THE ABI LOADOUT COMMUNITY</p>
+          <h1>BUILD SMART.<br /><em>SURVIVE LONGER.</em></h1>
+          <p class="intro">The definitive community hub for Arena Breakout: Infinite loadouts. Share battle-tested builds, tune every attachment, and find your edge before deployment.</p>
+          <div class="hero-actions">
+            <a href="#builds" class="primary-btn">EXPLORE BUILDS <b>→</b></a>
+            <a href="#workbench" class="text-btn">OPEN WORKBENCH <b>↗</b></a>
+          </div>
+          <div class="hero-stats">
+            <div><strong>12.4K</strong><span>ACTIVE OPERATORS</span></div>
+            <div><strong>3,842</strong><span>COMMUNITY BUILDS</span></div>
+            <div><strong>98.6%</strong><span>EXTRACTION RATE*</span></div>
+          </div>
+        </div>
+        <div class="hero-art" aria-label="Stylized assault rifle blueprint">
+          <div class="target-ring r1"></div><div class="target-ring r2"></div><div class="target-ring r3"></div>
+          <div class="rifle">
+            <div class="barrel"></div><div class="rail"></div><div class="receiver"></div><div class="stock"></div><div class="grip"></div><div class="mag"></div><div class="scope"></div><div class="muzzle"></div>
+          </div>
+          <div class="callout scope-label"><i></i>1X/4X VARIABLE OPTIC</div>
+          <div class="callout grip-label"><i></i>ANGLED FOREGRIP</div>
+          <div class="callout mag-label"><i></i>60-ROUND MAG</div>
+          <p class="build-id">BUILD // 00481<br /><b>MK14 · DMR CONFIG</b></p>
+        </div>
+      </section>
+
+      <section class="ticker"><div><span>◈</span> COMMUNITY INTEL <b>•</b> NEW BUILDS DROPPED DAILY <b>•</b> SQUAD UP. BUILD UP. <b>•</b> COMMUNITY INTEL <b>•</b> NEW BUILDS DROPPED DAILY <b>•</b> SQUAD UP. BUILD UP. <b>•</b></div></section>
+
+      <section class="content" id="builds">
+        <div class="section-head">
+          <div><p class="eyebrow"><span></span> FIELD-PROVEN CONFIGS</p><h2>Trending <em>this week</em></h2></div>
+          <a href="#" class="view-all">VIEW ALL BUILDS <b>→</b></a>
+        </div>
+        <div class="filter-row">
+          <button class="filter selected" data-filter="ALL">ALL BUILDS <small id="build-count">3</small></button><button class="filter" data-filter="ASSAULT RIFLES">ASSAULT RIFLES</button><button class="filter" data-filter="SMGS">SMGS</button><button class="filter" data-filter="DMRS">DMRS</button><button class="filter" data-filter="BUDGET">BUDGET</button>
+          <input id="build-search" placeholder="SEARCH BUILDS" aria-label="Search builds" />
+          <button class="sort">SORT: TRENDING <b>⌄</b></button>
+        </div>
+        <div class="build-grid" id="build-grid">
+          <article class="build-card featured">
+            <div class="card-visual weapon-one"><span class="tier">TIER 5</span><button class="save">♡</button><div class="weapon-silhouette ar"></div><span class="tag top">TOP PICK</span></div>
+            <div class="card-body"><div class="card-meta"><span>ASSAULT RIFLE</span><span class="up">▲ 24%</span></div><h3>The Quiet Operator</h3><p>M4A1 · Full stealth / mid-range</p><div class="card-foot"><span class="price">₭ 184,500</span><span class="author">BY <b>GHOSTRIDER</b></span></div></div>
+          </article>
+          <article class="build-card">
+            <div class="card-visual weapon-two"><span class="tier">TIER 4</span><button class="save">♡</button><div class="weapon-silhouette smg"></div><span class="tag budget">BUDGET KING</span></div>
+            <div class="card-body"><div class="card-meta"><span>SMG</span><span class="up">▲ 18%</span></div><h3>Zero to Hero</h3><p>MP5 · Close quarters / cheap</p><div class="card-foot"><span class="price">₭ 42,300</span><span class="author">BY <b>RAZE</b></span></div></div>
+          </article>
+          <article class="build-card">
+            <div class="card-visual weapon-three"><span class="tier">TIER 6</span><button class="save">♡</button><div class="weapon-silhouette dmr"></div><span class="tag meta">META</span></div>
+            <div class="card-body"><div class="card-meta"><span>DMR</span><span class="up">▲ 11%</span></div><h3>Valley Watcher</h3><p>M110 · Long range / precision</p><div class="card-foot"><span class="price">₭ 216,750</span><span class="author">BY <b>SUNDOWN</b></span></div></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="workbench" id="workbench">
+        <div class="bench-copy"><p class="eyebrow"><span></span> COMMUNITY TOOLKIT</p><h2>FROM IDEA<br />TO <em>EXTRACTION.</em></h2><p>Stop guessing what works. Assemble a loadout, compare the real numbers, and share it with operators who know the map.</p><a class="primary-btn" href="#">START A BUILD <b>→</b></a></div>
+        <div class="bench-panel"><div class="panel-head"><span>LOADOUT WORKBENCH</span><span class="live-dot">● LIVE STATS</span></div><div class="loadout-row"><div class="slot gun-slot"><span>PRIMARY</span><b>AK-74N</b><i>▰</i></div><div class="slot"><span>HELMET</span><b>IND200</b><i>◒</i></div><div class="slot"><span>ARMOR</span><b>6B23</b><i>▣</i></div></div><div class="stat-bars"><div><label>ERGONOMICS <b>72</b></label><i><em style="width:72%"></em></i></div><div><label>VERTICAL RECOIL <b>41</b></label><i><em style="width:41%"></em></i></div><div><label>HORIZONTAL RECOIL <b>47</b></label><i><em style="width:47%"></em></i></div></div><div class="panel-total"><span>EST. LOADOUT COST</span><b>₭ 142,800</b><button>SHARE BUILD →</button></div></div>
+      </section>
+    </main>
+    <footer><span>abiBUILDS <i>///</i> COMMUNITY BUILD DATABASE</span><span>FAN-MADE. NOT AFFILIATED WITH MORE FUN STUDIOS.</span><span>© 2026</span></footer>
+    <dialog id="auth-modal" class="modal"><button class="modal-close" data-close>×</button><div class="modal-inner"><p class="eyebrow"><span></span> OPERATOR ACCESS</p><h2>Join the <em>line.</em></h2><p>Create a profile to publish builds, save favorites, and earn reputation.</p><form id="auth-form"><input id="auth-name" required minlength="3" placeholder="OPERATOR NAME" /><input id="auth-email" required type="email" placeholder="EMAIL ADDRESS" /><input id="auth-password" required minlength="8" type="password" placeholder="PASSWORD (8+ CHARACTERS)" /><button class="primary-btn">CREATE PROFILE <b>→</b></button></form><small id="auth-note">Your profile is stored securely when Supabase is connected.</small></div></dialog>
+    <dialog id="submit-modal" class="modal"><button class="modal-close" data-close>×</button><div class="modal-inner"><p class="eyebrow"><span></span> SHARE YOUR CONFIG</p><h2>Post a <em>build.</em></h2><form id="build-form"><input id="build-title" required maxlength="48" placeholder="BUILD NAME" /><div class="form-pair"><select id="build-type"><option>ASSAULT RIFLE</option><option>SMG</option><option>DMR</option><option>SHOTGUN</option><option>PISTOL</option><option>BUDGET</option></select><input id="build-price" required type="number" min="0" placeholder="COST (KOEN)" /></div><input id="build-weapon" required maxlength="40" placeholder="WEAPON + ROLE (e.g. M4A1 · STEALTH)" /><input id="gunsmith-code" maxlength="120" placeholder="GUNSMITH CODE (OPTIONAL)" /><input id="loadout-code" maxlength="120" placeholder="FULL LOADOUT CODE (OPTIONAL)" /><textarea id="build-notes" maxlength="180" placeholder="WHY DOES THIS BUILD WORK?"></textarea><button class="primary-btn">PUBLISH BUILD <b>→</b></button></form><small id="submit-note">Sign in first to publish to the community.</small></div></dialog>
+    <div id="toast" role="status"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
